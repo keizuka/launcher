@@ -1,11 +1,13 @@
 {
+	"launcher": {"depot": "keizuka/launcher", "prefixe_tag": "launcher-v",
+		"executable": {"linux": "launcher.x86_64", "windows": "launcher.exe"}},
 	"jeux": [
 		{
 			"id": "rpg-ia",
 			"nom": "RPG IA",
 			"description": "Un jeu de rôle façon D&D 5 où une IA locale est votre Maître du Jeu : il raconte, joue les PNJ et vous parle. Seul ou en équipe en réseau, avec chat vocal, aventures créées par l'IA et import de vos propres campagnes. Au premier lancement, le jeu propose de télécharger ses modèles d'IA (≈ 3,4 Go).",
 			"image": "",
-			"depot": "keizuka/jeux",
+			"depot": "keizuka/launcher",
 			"prefixe_tag": "rpg-ia-v",
 			"executable": {"linux": "rpg-ia.x86_64", "windows": "rpg-ia.exe"}
 		}

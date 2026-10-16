@@ -7,6 +7,8 @@ const VERIFICATION_AUTO_S := 1800.0   # nouvelle vérification toutes les 30 min
 
 var catalogue := Catalogue.new()
 var installateur := Installateur.new()
+var auto_maj := AutoMaj.new()
+var _bandeau_maj: HBoxContainer
 var _liste: VBoxContainer
 var _etat: Label
 var _choisi := ""
@@ -30,6 +32,8 @@ func _ready() -> void:
 	RenderingServer.set_default_clear_color(ThemeLauncher.FOND)
 	add_child(catalogue)
 	add_child(installateur)
+	add_child(auto_maj)
+	AutoMaj.nettoyer()
 	_lire_reglages()
 	_options_ligne_de_commande()
 	_construire()
@@ -48,6 +52,14 @@ func _ready() -> void:
 		_maj_fiche()
 		if _auto_suivant.is_valid():
 			_auto_suivant.call())
+	auto_maj.progres.connect(func(_f: float, t: String): _etat.text = t)
+	auto_maj.echec.connect(func(m: String):
+		_etat.text = m
+		_etat.add_theme_color_override("font_color", ThemeLauncher.DANGER)
+		_maj_bandeau_launcher())
+	if "--apres-maj" in OS.get_cmdline_user_args():
+		_etat.text = "Launcher mis à jour : version %s." % AutoMaj.version()
+		print("APRES MAJ version ", AutoMaj.version())
 	_verifier()
 
 func _process(delta: float) -> void:
@@ -72,6 +84,7 @@ func _construire() -> void:
 	col.add_child(tete)
 	var titre := Label.new()
 	titre.text = "Mes jeux"
+	titre.tooltip_text = "Launcher version %s" % AutoMaj.version()
 	titre.theme_type_variation = "Titre"
 	titre.add_theme_font_size_override("font_size", 40)
 	tete.add_child(titre)
@@ -91,6 +104,9 @@ func _construire() -> void:
 	_etat.theme_type_variation = "Discret"
 	_etat.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_etat)
+	_bandeau_maj = HBoxContainer.new()
+	_bandeau_maj.visible = false
+	col.add_child(_bandeau_maj)
 	_reglages = PanelContainer.new()
 	_reglages.visible = false
 	col.add_child(_reglages)
@@ -188,6 +204,7 @@ func _sur_catalogue(ok: bool, message: String) -> void:
 	if not a_maj.is_empty():
 		_etat.text = "Mise à jour disponible : " + ", ".join(a_maj.map(func(j): return j["nom"]))
 		_etat.add_theme_color_override("font_color", ThemeLauncher.LAITON)
+	_maj_bandeau_launcher()
 	if _choisi == "" and not catalogue.jeux.is_empty():
 		_choisi = catalogue.jeux[0]["id"]
 	_maj_liste()
@@ -195,6 +212,43 @@ func _sur_catalogue(ok: bool, message: String) -> void:
 	if _auto_suivant.is_valid() and not _auto_lance:
 		_auto_lance = true
 		_auto_suivant.call()
+
+# Bandeau « nouvelle version du launcher » quand le dépôt du launcher a plus récent que nous.
+func _maj_bandeau_launcher() -> void:
+	for c in _bandeau_maj.get_children():
+		c.queue_free()
+	var v: Dictionary = catalogue.version_lanceur
+	var plus_recent := not v.is_empty() and Catalogue.comparer(v["version"], AutoMaj.version()) > 0
+	_bandeau_maj.visible = plus_recent
+	if not plus_recent:
+		return
+	var l := Label.new()
+	l.text = "Nouvelle version du launcher : %s (vous avez %s)." % [v["version"], AutoMaj.version()]
+	l.add_theme_color_override("font_color", ThemeLauncher.LAITON)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bandeau_maj.add_child(l)
+	var b := Button.new()
+	b.text = "Mettre à jour le launcher" if AutoMaj.possible() else "Mise à jour : téléchargez-la sur GitHub"
+	b.disabled = not AutoMaj.possible() or installateur.occupe()
+	b.pressed.connect(_mettre_a_jour_launcher)
+	_bandeau_maj.add_child(b)
+
+func _mettre_a_jour_launcher() -> void:
+	var exe: String = catalogue.lanceur.get("executable", {}).get(catalogue.systeme(), "")
+	for b in _bandeau_maj.get_children():
+		if b is Button:
+			b.disabled = true
+	# On relance avec les mêmes options (adresse du catalogue, tests), plus --apres-maj.
+	var args := PackedStringArray(["--"])
+	var a := OS.get_cmdline_user_args()
+	for i in a.size():
+		if a[i] == "--auto":
+			continue
+		if i > 0 and a[i - 1] == "--auto":
+			continue
+		args.append(a[i])
+	args.append("--apres-maj")
+	auto_maj.appliquer(catalogue.version_lanceur, exe, catalogue.entetes(), args)
 
 # "absent", "a_jour", "maj" ou "indisponible" (aucune version pour ce système)
 func _etat_jeu(id: String) -> String:
@@ -385,5 +439,8 @@ func _etape_auto() -> void:
 		"desinstaller":
 			installateur.desinstaller(_choisi)
 			_etape_auto()
+		"maj_launcher":
+			print("AUTO launcher %s, publié %s" % [AutoMaj.version(), catalogue.version_lanceur.get("version", "aucun")])
+			_mettre_a_jour_launcher()  # se relance tout seul s'il y a plus récent
 		_:
 			_etape_auto()

@@ -2,7 +2,7 @@
 # Publie une version d'un jeu Godot pour le launcher : export Linux + Windows, deux zips, release GitHub.
 #
 #   ./tools/publier_jeu.sh <dossier du projet> <id> <version> [options]
-#     --depot owner/repo   dépôt PUBLIC qui reçoit les versions (défaut : keizuka/jeux)
+#     --depot owner/repo   dépôt PUBLIC qui reçoit les versions (défaut : keizuka/launcher)
 #     --notes "texte"      nouveautés affichées dans le launcher (sinon : les derniers commits)
 #     --local <dossier>    fabrique seulement les zips dans ce dossier, sans rien publier (essai)
 #
@@ -10,7 +10,7 @@
 # et le catalogue (catalogue.json du dépôt) doit contenir le jeu avec son id.
 set -euo pipefail
 projet="$(cd "$1" && pwd)"; id="$2"; version="${3#v}"; shift 3
-depot="keizuka/jeux"; notes=""; local_dir=""
+depot="keizuka/launcher"; notes=""; local_dir=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--depot) depot="$2"; shift 2 ;;
@@ -31,6 +31,13 @@ for sys in linux windows; do
 	echo "→ Export $preset…"
 	godot --headless --path "$projet" --export-release "$preset" "$tmp/$sys/$exe" 2>&1 | grep -E "^ERROR|SCRIPT ERROR" | grep -v CUDA || true
 	[[ -f "$tmp/$sys/$exe" ]] || { echo "Export $preset échoué" >&2; exit 1; }
+	# Licences et crédits livrés avec l'exécutable (moteur, plugins, polices, contenus).
+	mkdir -p "$tmp/$sys/licences"
+	cp "$(dirname "$0")/licences/"*.txt "$tmp/$sys/licences/" 2>/dev/null || true
+	if [[ -f "$projet/CREDITS.md" ]]; then cp "$projet/CREDITS.md" "$tmp/$sys/licences/"; fi
+	find "$projet/addons" "$projet/assets/polices" -maxdepth 2 2>/dev/null \( -iname 'LICENSE*' -o -iname 'OFL.txt' \) 2>/dev/null | while read -r f; do
+		nom="$(basename "$f")"; cp "$f" "$tmp/$sys/licences/$(basename "$(dirname "$f")")-${nom%.txt}.txt"
+	done || true
 	(cd "$tmp/$sys" && zip -qr9 "$sortie/$id-$version-$sys.zip" .)
 	echo "  $id-$version-$sys.zip : $(du -h "$sortie/$id-$version-$sys.zip" | cut -f1)"
 done

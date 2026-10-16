@@ -9,11 +9,13 @@ signal termine(ok: bool, message: String)
 
 const API := "https://api.github.com"
 
-var url_catalogue := "https://raw.githubusercontent.com/keizuka/jeux/main/catalogue.json"
+var url_catalogue := "https://raw.githubusercontent.com/keizuka/launcher/main/catalogue.json"
 var url_api := API             # remplaçable pour les tests (serveur local)
 var jeton := ""                # jeton GitHub facultatif (dépôts privés)
 var jeux: Array = []           # entrées du catalogue
 var versions := {}             # id -> {tag, version, notes, date, fichier: {nom, url, taille}}
+var lanceur := {}              # entrée « launcher » du catalogue (son propre dépôt)
+var version_lanceur := {}      # dernière version publiée du launcher pour ce système
 
 func systeme() -> String:
 	return "windows" if OS.get_name() == "Windows" else "linux"
@@ -31,10 +33,14 @@ func actualiser() -> void:
 		termine.emit(false, "Catalogue introuvable (%s)." % url_catalogue)
 		return
 	jeux = d["jeux"]
+	lanceur = d.get("launcher", {})
 	versions.clear()
+	version_lanceur = {}
 	var depots := {}
 	for j in jeux:
 		depots[j["depot"]] = true
+	if not lanceur.is_empty():
+		depots[lanceur["depot"]] = true
 	for depot in depots:
 		var releases = await _json("%s/repos/%s/releases?per_page=100" % [url_api, depot])
 		if not releases is Array:
@@ -45,6 +51,8 @@ func actualiser() -> void:
 				var v := derniere_version(releases, j.get("prefixe_tag", j["id"] + "-v"), systeme())
 				if not v.is_empty():
 					versions[j["id"]] = v
+		if not lanceur.is_empty() and lanceur["depot"] == depot:
+			version_lanceur = derniere_version(releases, lanceur.get("prefixe_tag", "launcher-v"), systeme())
 	termine.emit(true, "%d jeu%s, %d version%s disponible%s." % [jeux.size(), "x" if jeux.size() > 1 else "",
 		versions.size(), "s" if versions.size() > 1 else "", "s" if versions.size() > 1 else ""])
 
