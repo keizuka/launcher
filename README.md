@@ -4,7 +4,7 @@ Installe, met à jour et lance les jeux de Keizuka (Godot 4.7, Linux et Windows)
 
 ## Pour les joueurs
 
-Téléchargez le launcher (Linux ou Windows) depuis les releases de https://github.com/keizuka/jeux, décompressez,
+Téléchargez le launcher (Linux ou Windows) depuis les releases de https://github.com/keizuka/launcher, décompressez,
 lancez `launcher.x86_64` ou `launcher.exe`. Il liste les jeux, installe la dernière version, prévient quand une
 mise à jour sort (vérification au démarrage et toutes les 30 minutes) et lance le jeu.
 Les jeux vont dans les données du launcher (`~/.local/share/godot/app_userdata/Launcher/jeux` sous Linux,
@@ -12,11 +12,14 @@ Les jeux vont dans les données du launcher (`~/.local/share/godot/app_userdata/
 
 ## Fonctionnement
 
-- `catalogue.json` (dans le dépôt public `keizuka/jeux`) : la liste des jeux (id, nom, description, image, dépôt,
+- `catalogue.json` (dans ce dépôt public) : la liste des jeux (id, nom, description, image, dépôt,
   préfixe de tag, exécutable par système).
 - Une version d'un jeu = une release GitHub de ce dépôt, tag `<id>-v<version>`, avec `<id>-<version>-linux.zip` et
   `<id>-<version>-windows.zip`. Le texte de la release est affiché comme « Nouveautés ».
 - Jeton GitHub facultatif (Réglages) pour un jeu publié dans un dépôt privé où le joueur est invité.
+- Le launcher se met à jour lui-même : il est exporté en un seul fichier, télécharge la dernière release
+  `launcher-v*`, se renomme en `.old`, met la nouvelle version à sa place et la relance. Il doit donc être
+  installé dans un dossier modifiable (pas dans Program Files).
 
 ## Publier une version (développeur)
 
