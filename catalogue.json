@@ -4,7 +4,7 @@
 	"jeux": [
 		{
 			"id": "rpg-ia",
-			"nom": "RPG IA",
+			"nom": "Le Conteur",
 			"description": "Un jeu de rôle façon D&D 5 où une IA locale est votre Maître du Jeu : il raconte, joue les PNJ et vous parle. Seul ou en équipe en réseau, avec chat vocal, aventures créées par l'IA et import de vos propres campagnes. Au premier lancement, le jeu propose de télécharger ses modèles d'IA (≈ 3,4 Go).",
 			"image": "",
 			"depot": "keizuka/launcher",
