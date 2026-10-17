@@ -1,7 +1,7 @@
 # catalogue.gd — Les jeux proposés et leurs versions publiées sur GitHub.
-# catalogue.json : {"jeux": [{id, nom, description, image, depot: "owner/repo", prefixe_tag, executable: {linux, windows}}]}
+# catalogue.json : {"jeux": [{id, nom, description, image, depot: "owner/repo", prefixe_tag, executable: {linux, windows, macos}}]}
 # Une version = une release GitHub dont le tag commence par prefixe_tag (« rpg-ia-v »), avec un fichier
-# .zip par système : « …-linux.zip », « …-windows.zip ».
+# .zip par système : « …-linux.zip », « …-windows.zip », « …-macos.zip » (une app .app universelle).
 class_name Catalogue
 extends Node
 
@@ -18,7 +18,12 @@ var lanceur := {}              # entrée « launcher » du catalogue (son propre
 var version_lanceur := {}      # dernière version publiée du launcher pour ce système
 
 func systeme() -> String:
-	return "windows" if OS.get_name() == "Windows" else "linux"
+	match OS.get_name():
+		"Windows":
+			return "windows"
+		"macOS":
+			return "macos"
+	return "linux"
 
 func entetes() -> PackedStringArray:
 	var h := PackedStringArray(["User-Agent: launcher-keizuka", "Accept: application/vnd.github+json"])

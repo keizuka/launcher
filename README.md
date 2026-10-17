@@ -30,3 +30,15 @@ Les jeux vont dans les données du launcher (`~/.local/share/godot/app_userdata/
 
 Le projet du jeu doit avoir des préréglages d'export « Linux » et « Windows » ; les modèles d'export Godot 4.7.2
 doivent être installés. Le code source des jeux peut rester privé : seuls les exécutables sont publiés.
+
+## macOS
+
+Le launcher et les jeux existent en app universelle (Mac Intel et Apple Silicon), signée « ad hoc » mais pas
+notariée par Apple (il faudrait un compte développeur payant). Au premier lancement du launcher :
+
+1. décompressez `launcher-<version>-macos.zip` et glissez `Launcher.app` dans **Applications** ;
+2. clic droit (ou Ctrl+clic) sur `Launcher.app` → **Ouvrir** → **Ouvrir** ; ou bien Réglages Système →
+   Confidentialité et sécurité → **Ouvrir quand même** ;
+3. si macOS dit que l'app est « endommagée » : dans le Terminal, `xattr -cr /Applications/Launcher.app`.
+
+Les jeux installés par le launcher n'ont pas cette étape (le launcher retire l'attribut de quarantaine).

@@ -69,6 +69,8 @@ func installer(jeu: Dictionary, version: Dictionary, entetes: PackedStringArray,
 		return
 	if sys == "linux":
 		OS.execute("chmod", ["+x", ProjectSettings.globalize_path(chemin_exe)])
+	elif sys == "macos":
+		preparer_app_mac(ProjectSettings.globalize_path(chemin_exe))
 	# L'ancienne version est supprimée une fois la nouvelle en place.
 	var ancienne: Dictionary = installes.get(id, {})
 	installes[id] = {"version": version["version"], "dossier": dossier, "executable": chemin_exe}
@@ -87,6 +89,21 @@ func _process(_d: float) -> void:
 		var recu := _telechargement.get_downloaded_bytes()
 		if total > 0:
 			progres.emit(_en_cours, 0.9 * recu / float(total), "Téléchargement : %.1f / %.1f Mo" % [recu / 1e6, total / 1e6])
+
+# macOS : le zip ne garde pas les droits ; on rend exécutables les binaires de l'app et on retire
+# l'attribut de quarantaine (sinon Gatekeeper peut refuser une app non notariée).
+static func preparer_app_mac(exe: String) -> void:
+	var app := app_mac(exe)
+	if app == "":
+		return
+	for f in DirAccess.get_files_at(app.path_join("Contents/MacOS")):
+		OS.execute("chmod", ["+x", app.path_join("Contents/MacOS").path_join(f)])
+	OS.execute("xattr", ["-cr", app])
+
+# « …/Jeu.app/Contents/MacOS/Jeu » -> « …/Jeu.app » (ou "" si ce n'est pas une app).
+static func app_mac(exe: String) -> String:
+	var app := exe.get_base_dir().get_base_dir().get_base_dir()
+	return app if app.ends_with(".app") else ""
 
 # Extrait un zip (chemins vérifiés : rien ne sort du dossier cible). "" si tout va bien.
 static func extraire(zip: String, dossier: String) -> String:

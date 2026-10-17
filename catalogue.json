@@ -1,6 +1,6 @@
 {
 	"launcher": {"depot": "keizuka/launcher", "prefixe_tag": "launcher-v",
-		"executable": {"linux": "launcher.x86_64", "windows": "launcher.exe"}},
+		"executable": {"linux": "launcher.x86_64", "windows": "launcher.exe", "macos": "Launcher.app/Contents/MacOS/Launcher"}},
 	"jeux": [
 		{
 			"id": "rpg-ia",
@@ -9,7 +9,7 @@
 			"image": "",
 			"depot": "keizuka/launcher",
 			"prefixe_tag": "rpg-ia-v",
-			"executable": {"linux": "rpg-ia.x86_64", "windows": "rpg-ia.exe"}
+			"executable": {"linux": "rpg-ia.x86_64", "windows": "rpg-ia.exe", "macos": "The Storyteller.app/Contents/MacOS/The Storyteller"}
 		}
 	]
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Publie une version d'un jeu Godot pour le launcher : export Linux + Windows, deux zips, release GitHub.
+# Publie une version d'un jeu Godot pour le launcher : export Linux + Windows (+ macOS si le préréglage
+# existe), un zip par système, release GitHub.
 #
 #   ./tools/publier_jeu.sh <dossier du projet> <id> <version> [options]
 #     --depot owner/repo   dépôt PUBLIC qui reçoit les versions (défaut : keizuka/launcher)
@@ -24,13 +25,23 @@ tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 sortie="${local_dir:-$tmp/zips}"; mkdir -p "$sortie"; sortie="$(cd "$sortie" && pwd)"
 exe_linux=$(grep -A12 'name="Linux"' "$projet/export_presets.cfg" | grep -oP 'export_path="\K[^"]+' | xargs basename)
 exe_windows=$(grep -A12 'name="Windows"' "$projet/export_presets.cfg" | grep -oP 'export_path="\K[^"]+' | xargs basename)
-for sys in linux windows; do
-	preset=$([[ $sys == linux ]] && echo Linux || echo Windows)
-	exe=$([[ $sys == linux ]] && echo "$exe_linux" || echo "$exe_windows")
+systemes="linux windows"
+grep -q 'name="macOS"' "$projet/export_presets.cfg" && systemes="$systemes macos"
+for sys in $systemes; do
+	case $sys in
+		linux) preset=Linux; exe="$exe_linux" ;;
+		windows) preset=Windows; exe="$exe_windows" ;;
+		macos) preset=macOS; exe="app.zip" ;;
+	esac
 	mkdir -p "$tmp/$sys"
 	echo "→ Export $preset…"
 	godot --headless --path "$projet" --export-release "$preset" "$tmp/$sys/$exe" 2>&1 | grep -E "^ERROR|SCRIPT ERROR" | grep -v CUDA || true
 	[[ -f "$tmp/$sys/$exe" ]] || { echo "Export $preset échoué" >&2; exit 1; }
+	if [[ $sys == macos ]]; then
+		# Godot livre l'app .app (universelle, signée ad hoc) dans un zip : on l'ouvre pour y joindre les licences.
+		(cd "$tmp/$sys" && unzip -q app.zip && rm app.zip)
+		ls -d "$tmp/$sys"/*.app >/dev/null 2>&1 || { echo "Export macOS : pas d'app .app" >&2; exit 1; }
+	fi
 	# Licences et crédits livrés avec l'exécutable (moteur, plugins, polices, contenus).
 	mkdir -p "$tmp/$sys/licences"
 	cp "$(dirname "$0")/licences/"*.txt "$tmp/$sys/licences/" 2>/dev/null || true
@@ -49,6 +60,8 @@ if [[ -z "$notes" ]]; then
 	notes=$(git -C "$projet" log --pretty='- %s' -n 8)
 fi
 tag="$id-v$version"
-gh release create "$tag" "$sortie/$id-$version-linux.zip" "$sortie/$id-$version-windows.zip" \
+fichiers=()
+for sys in $systemes; do fichiers+=("$sortie/$id-$version-$sys.zip"); done
+gh release create "$tag" "${fichiers[@]}" \
 	--repo "$depot" --title "$(basename "$projet") $version" --notes "$notes"
 echo "Publié : https://github.com/$depot/releases/tag/$tag — le launcher le proposera à la prochaine vérification."
