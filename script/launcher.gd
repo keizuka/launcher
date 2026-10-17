@@ -72,6 +72,19 @@ func _process(delta: float) -> void:
 
 func _construire() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Fond Keizuka Production, assombri pour que le texte reste lisible.
+	var fond := TextureRect.new()
+	fond.texture = load("res://assets/images/fond.jpg")
+	fond.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fond.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	fond.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fond.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(fond)
+	var voile := ColorRect.new()
+	voile.color = Color(ThemeLauncher.FOND, 0.62)
+	voile.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	voile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(voile)
 	var marge := MarginContainer.new()
 	marge.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for c in ["left", "right", "top", "bottom"]:
@@ -82,6 +95,13 @@ func _construire() -> void:
 	marge.add_child(col)
 	var tete := HBoxContainer.new()
 	col.add_child(tete)
+	var logo := TextureRect.new()
+	logo.texture = load("res://assets/images/icone.png")
+	logo.custom_minimum_size = Vector2(56, 56)
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.tooltip_text = "Keizuka Production"
+	tete.add_child(logo)
 	var titre := Label.new()
 	titre.text = "Mes jeux"
 	titre.tooltip_text = "Launcher version %s" % AutoMaj.version()

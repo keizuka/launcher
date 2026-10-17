@@ -8,6 +8,7 @@ config/name="Launcher"
 config/description="Installe, met à jour et lance les jeux de Keizuka."
 config/version="0.2.0"
 run/main_scene="res://scenes/launcher.tscn"
+config/icon="res://assets/images/icone.png"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [display]
