@@ -10,6 +10,15 @@
 			"depot": "keizuka/launcher",
 			"prefixe_tag": "rpg-ia-v",
 			"executable": {"linux": "rpg-ia.x86_64", "windows": "rpg-ia.exe", "macos": "The Storyteller.app/Contents/MacOS/The Storyteller"}
+		},
+		{
+			"id": "apoapsis",
+			"nom": "Apoapsis",
+			"description": "Un jeu spatial dans le vrai système solaire, à l'échelle réelle (éphémérides NASA/JPL) : assemblez vos fusées, décollez de Kourou, rejoignez une station en orbite, amarrez-vous, transférez vos ergols, posez-vous sur la Lune et marchez dessus. Cockpit à la première personne avec écrans tactiles, rentrée atmosphérique avec échauffement, relief réel de la Terre, de la Lune et de Mars. Version Linux.",
+			"image": "https://raw.githubusercontent.com/keizuka/launcher/main/vignettes/apoapsis.jpg",
+			"depot": "keizuka/launcher",
+			"prefixe_tag": "apoapsis-v",
+			"executable": {"linux": "apoapsis.x86_64"}
 		}
 	]
 }

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Publie une version d'un jeu Godot pour le launcher : export Linux + Windows (+ macOS si le préréglage
-# existe), un zip par système, release GitHub.
+# Publie une version d'un jeu Godot pour le launcher : export Linux (+ Windows et macOS si les préréglages
+# existent), un zip par système, release GitHub.
 #
 #   ./tools/publier_jeu.sh <dossier du projet> <id> <version> [options]
 #     --depot owner/repo   dépôt PUBLIC qui reçoit les versions (défaut : keizuka/launcher)
 #     --notes "texte"      nouveautés affichées dans le launcher (sinon : les derniers commits)
 #     --local <dossier>    fabrique seulement les zips dans ce dossier, sans rien publier (essai)
 #
-# Le projet doit avoir des préréglages d'export nommés « Linux » et « Windows » (export_presets.cfg),
+# Le projet doit avoir un préréglage d'export nommé « Linux » (« Windows » et « macOS » facultatifs),
 # et le catalogue (catalogue.json du dépôt) doit contenir le jeu avec son id.
 set -euo pipefail
 projet="$(cd "$1" && pwd)"; id="$2"; version="${3#v}"; shift 3
@@ -24,8 +24,12 @@ done
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 sortie="${local_dir:-$tmp/zips}"; mkdir -p "$sortie"; sortie="$(cd "$sortie" && pwd)"
 exe_linux=$(grep -A12 'name="Linux"' "$projet/export_presets.cfg" | grep -oP 'export_path="\K[^"]+' | xargs basename)
-exe_windows=$(grep -A12 'name="Windows"' "$projet/export_presets.cfg" | grep -oP 'export_path="\K[^"]+' | xargs basename)
-systemes="linux windows"
+systemes="linux"
+# Windows et macOS sont facultatifs : seulement si le projet a le préréglage.
+if grep -q 'name="Windows"' "$projet/export_presets.cfg"; then
+	exe_windows=$(grep -A12 'name="Windows"' "$projet/export_presets.cfg" | grep -oP 'export_path="\K[^"]+' | xargs basename)
+	systemes="$systemes windows"
+fi
 grep -q 'name="macOS"' "$projet/export_presets.cfg" && systemes="$systemes macos"
 for sys in $systemes; do
 	case $sys in
