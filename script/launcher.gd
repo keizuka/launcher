@@ -36,6 +36,10 @@ func _ready() -> void:
 	AutoMaj.nettoyer()
 	_lire_reglages()
 	_options_ligne_de_commande()
+	# Téléphone/tablette : l'interface 1180×720 étirée à l'écran (comme les jeux de Keizuka).
+	if OS.get_name() == "Android" or OS.get_name() == "iOS":
+		get_window().content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 	_construire()
 	catalogue.termine.connect(_sur_catalogue)
 	installateur.progres.connect(func(id: String, f: float, t: String):
@@ -213,10 +217,6 @@ func _construire() -> void:
 	_maj_fiche()
 
 func _verifier() -> void:
-	# Le launcher reste desktop : seul le jeu (rpg-ia) sort sur Android/iOS.
-	if OS.get_name() == "Android" or OS.get_name() == "iOS":
-		_etat.text = "Le launcher n'est pas disponible sur mobile."
-		return
 	_etat.text = "Recherche des nouveautés…"
 	_etat.add_theme_color_override("font_color", ThemeLauncher.DISCRET)
 	catalogue.actualiser()
@@ -251,17 +251,23 @@ func _maj_bandeau_launcher() -> void:
 	l.add_theme_color_override("font_color", ThemeLauncher.LAITON)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_bandeau_maj.add_child(l)
+	# Sur Android, la mise à jour passe par le téléchargement de l'APK (comme pour les jeux).
+	var mise_a_jour := AutoMaj.possible() or catalogue.systeme() == "android"
 	var b := Button.new()
-	b.text = "Mettre à jour le launcher" if AutoMaj.possible() else "Mise à jour : téléchargez-la sur GitHub"
-	b.disabled = not AutoMaj.possible() or installateur.occupe()
+	b.text = "Mettre à jour le launcher" if mise_a_jour else "Mise à jour : téléchargez-la sur GitHub"
+	b.disabled = not mise_a_jour or installateur.occupe()
 	b.pressed.connect(_mettre_a_jour_launcher)
 	_bandeau_maj.add_child(b)
 
 func _mettre_a_jour_launcher() -> void:
-	var exe: String = catalogue.lanceur.get("executable", {}).get(catalogue.systeme(), "")
 	for b in _bandeau_maj.get_children():
 		if b is Button:
 			b.disabled = true
+	if catalogue.systeme() == "android":
+		installateur.installer({"id": "launcher", "nom": "Launcher"}, catalogue.version_lanceur,
+			catalogue.entetes(), "android")
+		return
+	var exe: String = catalogue.lanceur.get("executable", {}).get(catalogue.systeme(), "")
 	# On relance avec les mêmes options (adresse du catalogue, tests), plus --apres-maj.
 	var args := PackedStringArray(["--"])
 	var a := OS.get_cmdline_user_args()
@@ -278,6 +284,9 @@ func _mettre_a_jour_launcher() -> void:
 func _etat_jeu(id: String) -> String:
 	var v: Dictionary = catalogue.versions.get(id, {})
 	var i: Dictionary = installateur.installes.get(id, {})
+	# Android : le jeu peut avoir été désinstallé hors du launcher.
+	if not i.is_empty() and OS.get_name() == "Android" and not Installateur.paquet_installe(str(i.get("package", ""))):
+		i = {}
 	if i.is_empty():
 		return "absent" if not v.is_empty() else "indisponible"
 	if not v.is_empty() and Catalogue.comparer(v["version"], i["version"]) > 0:
@@ -344,7 +353,8 @@ func _maj_fiche() -> void:
 	if not i.is_empty():
 		_bouton("Désinstaller", func():
 			installateur.desinstaller(_choisi)
-			_etat.text = "%s désinstallé." % j["nom"]
+			_etat.text = ("%s : confirmez la désinstallation dans la fenêtre d'Android." % j["nom"]
+				) if OS.get_name() == "Android" else "%s désinstallé." % j["nom"]
 			_maj_liste()
 			_maj_fiche(), occupe)
 

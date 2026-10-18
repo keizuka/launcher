@@ -1,5 +1,7 @@
 # installateur.gd — Téléchargement, décompression, lancement et désinstallation des jeux.
 # Les jeux vont dans <données du launcher>/jeux/<id>/ ; installes.json garde la version de chacun.
+# Sur Android : le jeu est un APK téléchargé puis installé par le système (l'utilisateur confirme),
+# et il se lance par son paquet Android ; sur ordinateur, le zip est extrait et l'exécutable lancé.
 class_name Installateur
 extends Node
 
@@ -27,11 +29,15 @@ func dossier_jeu(id: String) -> String:
 	return "user://jeux/%s" % id
 
 # Installe (ou met à jour) un jeu : télécharge le zip de la version, l'extrait à la place de l'ancienne.
+# Sur Android, télécharge l'APK et ouvre l'installateur système (voir _installer_apk).
 func installer(jeu: Dictionary, version: Dictionary, entetes: PackedStringArray, sys: String) -> void:
 	if occupe():
 		return
 	var id: String = jeu["id"]
 	_en_cours = id
+	if sys == "android":
+		await _installer_apk(jeu, version, entetes)
+		return
 	var zip := "user://telechargements/%s.zip" % id
 	DirAccess.make_dir_recursive_absolute("user://telechargements")
 	_telechargement = HTTPRequest.new()
@@ -78,6 +84,72 @@ func installer(jeu: Dictionary, version: Dictionary, entetes: PackedStringArray,
 	if not ancienne.is_empty() and ancienne.get("dossier", "") != dossier:
 		supprimer_dossier(ancienne["dossier"])
 	_terminer(id, true, "%s %s installé." % [jeu.get("nom", id), version["version"]])
+
+# Android : télécharge l'APK puis ouvre l'installateur système du téléphone (l'utilisateur confirme,
+# et peut devoir autoriser d'abord les installations venant de ce launcher dans les réglages du téléphone).
+func _installer_apk(jeu: Dictionary, version: Dictionary, entetes: PackedStringArray) -> void:
+	var id: String = jeu["id"]
+	var apk := "user://jeux/%s/%s.apk" % [id, version["version"]]
+	DirAccess.make_dir_recursive_absolute(dossier_jeu(id))
+	_telechargement = HTTPRequest.new()
+	_telechargement.download_file = apk
+	_telechargement.use_threads = true
+	add_child(_telechargement)
+	var url: String = version["fichier"]["url"]
+	var r: Array
+	if url.begins_with("file://") or url.begins_with("/"):
+		DirAccess.copy_absolute(url.trim_prefix("file://"), ProjectSettings.globalize_path(apk))  # tests hors ligne
+		r = [HTTPRequest.RESULT_SUCCESS, 200]
+	else:
+		var h := entetes.duplicate()
+		h.append("Accept: application/octet-stream")
+		if _telechargement.request(url, h) != OK:
+			_terminer(id, false, "Téléchargement impossible.")
+			return
+		r = await _telechargement.request_completed
+	_telechargement.queue_free()
+	_telechargement = null
+	if r[0] != HTTPRequest.RESULT_SUCCESS or r[1] != 200:
+		_terminer(id, false, "Téléchargement échoué (code %s)." % str(r[1]))
+		return
+	progres.emit(id, 0.95, "Installation…")
+	var ancienne: Dictionary = installes.get(id, {})
+	installes[id] = {"version": version["version"], "dossier": dossier_jeu(id), "executable": "",
+		"apk": apk, "package": jeu.get("package_android", "")}
+	_sauver()
+	var ancien_apk: String = ancienne.get("apk", "")
+	if ancien_apk != "" and ancien_apk != apk:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(ancien_apk))
+	var err := ouvrir_installation_apk(apk)
+	_terminer(id, err == "", err if err != "" else
+		"%s %s : confirmez l'installation dans la fenêtre d'Android." % [jeu.get("nom", id), version["version"]])
+
+# Android : ouvre l'installateur système du téléphone pour un APK. L'URI est donnée par le FileProvider
+# que Godot embarque dans chaque APK (<paquet>.fileprovider) : sans cela, Android refuse le fichier.
+static func ouvrir_installation_apk(apk: String) -> String:
+	if OS.get_name() != "Android":
+		return "L'installation d'APK est réservée à Android."
+	var runtime = Engine.get_singleton("AndroidRuntime")
+	var activite = runtime.getActivity() if runtime != null else null
+	if activite == null:
+		return "Activité Android introuvable."
+	var f = JavaClassWrapper.wrap("java.io.File").File(ProjectSettings.globalize_path(apk))
+	if not f.exists():
+		return "Fichier APK introuvable."
+	var ctx = activite.getApplicationContext()
+	var FileProvider = JavaClassWrapper.wrap("androidx.core.content.FileProvider")
+	var uri = FileProvider.getUriForFile(ctx, str(ctx.getPackageName()) + ".fileprovider", f)
+	if uri == null or JavaClassWrapper.get_exception() != null:
+		return "URI du fichier APK refusée."
+	var Intent = JavaClassWrapper.wrap("android.content.Intent")
+	var intent = Intent.Intent()
+	intent.setAction(Intent.ACTION_VIEW)
+	intent.setDataAndType(uri, "application/vnd.android.package-archive")
+	intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK)
+	activite.startActivity(intent)
+	if JavaClassWrapper.get_exception() != null:
+		return "Impossible d'ouvrir l'installateur Android : %s" % str(JavaClassWrapper.get_exception())
+	return ""
 
 func _terminer(id: String, ok: bool, message: String) -> void:
 	_en_cours = ""
@@ -129,8 +201,13 @@ static func extraire(zip: String, dossier: String) -> String:
 	z.close()
 	return ""
 
+# Sur Android, le jeu est une application : on lance son paquet (il doit être installé).
 func lancer(id: String) -> String:
 	var j: Dictionary = installes.get(id, {})
+	if OS.get_name() == "Android":
+		if j.is_empty():
+			return "Jeu introuvable : réinstallez-le."
+		return lancer_paquet(str(j.get("package", "")))
 	var exe := ProjectSettings.globalize_path(j.get("executable", ""))
 	if exe == "" or not FileAccess.file_exists(exe):
 		return "Jeu introuvable : réinstallez-le."
@@ -138,15 +215,69 @@ func lancer(id: String) -> String:
 	dernier_pid = pid
 	return "" if pid > 0 else "Le jeu n'a pas pu démarrer."
 
+# Android : ouvre l'application correspondant au paquet (déjà installée par le système).
+static func lancer_paquet(paquet: String) -> String:
+	if OS.get_name() != "Android":
+		return "Le lancement par paquet est réservé à Android."
+	if paquet.strip_edges() == "":
+		return "Ce jeu n'a pas de paquet Android : lancez-le depuis l'écran d'accueil du téléphone."
+	var runtime = Engine.get_singleton("AndroidRuntime")
+	var activite = runtime.getActivity() if runtime != null else null
+	if activite == null:
+		return "Activité Android introuvable."
+	var Intent = JavaClassWrapper.wrap("android.content.Intent")
+	var intent = Intent.Intent()
+	intent.setAction(Intent.ACTION_MAIN)
+	intent.addCategory(Intent.CATEGORY_LAUNCHER)
+	intent.setPackage(paquet)
+	intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+	activite.startActivity(intent)
+	if JavaClassWrapper.get_exception() != null:
+		return "Le jeu n'est pas installé (désinstallé depuis le téléphone ?) : réinstallez-le."
+	return ""
+
+# Android : le paquet est-il encore installé ? (l'utilisateur peut désinstaller hors du launcher,
+# il ne faut donc pas se fier au seul registre installes.json)
+static func paquet_installe(paquet: String) -> bool:
+	if OS.get_name() != "Android":
+		return false
+	if paquet.strip_edges() == "":
+		return true  # paquet inconnu : on fait confiance au registre
+	var runtime = Engine.get_singleton("AndroidRuntime")
+	var activite = runtime.getActivity() if runtime != null else null
+	if activite == null:
+		return true
+	activite.getPackageManager().getPackageInfo(paquet, 0)
+	return JavaClassWrapper.get_exception() == null
+
 var dernier_pid := 0
 
 func desinstaller(id: String) -> void:
 	var j: Dictionary = installes.get(id, {})
 	if j.is_empty():
 		return
+	# Sur Android, la désinstallation passe par le système (l'utilisateur confirme).
+	if OS.get_name() == "Android" and str(j.get("package", "")) != "":
+		_demande_desinstallation(str(j["package"]))
 	supprimer_dossier(dossier_jeu(id))
 	installes.erase(id)
 	_sauver()
+
+# Android : ouvre la désinstallation système du paquet (ACTION_DELETE).
+static func _demande_desinstallation(paquet: String) -> void:
+	if OS.get_name() != "Android":
+		return
+	var runtime = Engine.get_singleton("AndroidRuntime")
+	var activite = runtime.getActivity() if runtime != null else null
+	if activite == null:
+		return
+	var Uri = JavaClassWrapper.wrap("android.net.Uri")
+	var Intent = JavaClassWrapper.wrap("android.content.Intent")
+	var intent = Intent.Intent()
+	intent.setAction(Intent.ACTION_DELETE)
+	intent.setData(Uri.parse("package:" + paquet))
+	intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+	activite.startActivity(intent)
 
 static func supprimer_dossier(chemin: String) -> void:
 	var reel := ProjectSettings.globalize_path(chemin)

@@ -11,9 +11,10 @@ signal echec(message: String)
 static func version() -> String:
 	return str(ProjectSettings.get_setting("application/config/version", "0.0.0"))
 
-# Seulement pour le launcher exporté : lancé depuis Godot, il n'y a pas d'exécutable à remplacer.
+# Seulement pour le launcher exporté sur ordinateur : lancé depuis Godot, il n'y a pas d'exécutable à
+# remplacer. Sur Android, le launcher se met à jour avec son APK (voir _mettre_a_jour_launcher).
 static func possible() -> bool:
-	return OS.has_feature("template")
+	return OS.has_feature("template") and OS.get_name() != "Android" and OS.get_name() != "iOS"
 
 static func nettoyer() -> void:
 	if possible():

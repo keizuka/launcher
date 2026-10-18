@@ -1,7 +1,8 @@
 # catalogue.gd — Les jeux proposés et leurs versions publiées sur GitHub.
-# catalogue.json : {"jeux": [{id, nom, description, image, depot: "owner/repo", prefixe_tag, executable: {linux, windows, macos}}]}
+# catalogue.json : {"jeux": [{id, nom, description, image, depot: "owner/repo", prefixe_tag, executable: {linux, windows, macos}, package_android}]}
 # Une version = une release GitHub dont le tag commence par prefixe_tag (« rpg-ia-v »), avec un fichier
-# .zip par système : « …-linux.zip », « …-windows.zip », « …-macos.zip » (une app .app universelle).
+# par système : « …-linux.zip », « …-windows.zip », « …-macos.zip » (une app .app universelle),
+# ou « …-android.apk » sur Android (les jeux sans APK ne sont pas listés sur téléphone).
 class_name Catalogue
 extends Node
 
@@ -19,6 +20,8 @@ var version_lanceur := {}      # dernière version publiée du launcher pour ce 
 
 func systeme() -> String:
 	match OS.get_name():
+		"Android":
+			return "android"
 		"Windows":
 			return "windows"
 		"macOS":
@@ -58,6 +61,9 @@ func actualiser() -> void:
 					versions[j["id"]] = v
 		if not lanceur.is_empty() and lanceur["depot"] == depot:
 			version_lanceur = derniere_version(releases, lanceur.get("prefixe_tag", "launcher-v"), systeme())
+	# Sur Android, seuls les jeux publiés en APK ont leur place dans la liste.
+	if systeme() == "android":
+		jeux = jeux.filter(func(j): return versions.has(j["id"]))
 	termine.emit(true, "%d jeu%s, %d version%s disponible%s." % [jeux.size(), "x" if jeux.size() > 1 else "",
 		versions.size(), "s" if versions.size() > 1 else "", "s" if versions.size() > 1 else ""])
 
@@ -70,7 +76,9 @@ static func derniere_version(releases: Array, prefixe: String, sys: String) -> D
 			continue
 		var fichier := {}
 		for a in r.get("assets", []):
-			if str(a.get("name", "")).to_lower().ends_with("-%s.zip" % sys):
+			var nom: String = str(a.get("name", "")).to_lower()
+			var conforme := nom.ends_with("-android.apk") if sys == "android" else nom.ends_with("-%s.zip" % sys)
+			if conforme:
 				fichier = {"nom": a["name"], "url": a["browser_download_url"], "taille": int(a.get("size", 0))}
 		if fichier.is_empty():
 			continue
