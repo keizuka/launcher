@@ -46,6 +46,8 @@ func _ready() -> void:
 		get_window().content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 	_construire()
+	# Un téléchargement lancé avant la fermeture reprend : on sélectionne ce jeu pour voir sa barre.
+	_choisi = installateur.jeu_en_cours()
 	get_viewport().size_changed.connect(_maj_fond)
 	if OS.get_name() == "Android" or OS.get_name() == "iOS":
 		get_window().size_changed.connect(_ajuster_orientation)
@@ -194,6 +196,8 @@ func _construire() -> void:
 	defil.add_child(_liste)
 
 	_cadre = PanelContainer.new()
+	# Panneau de la fiche : fond un peu transparent pour laisser voir le fond du launcher.
+	_cadre.add_theme_stylebox_override("panel", ThemeLauncher.boite(Color(ThemeLauncher.SURFACE, 0.72), ThemeLauncher.LIGNE, 10, 16))
 	_cadre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_cadre.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	corps.add_child(_cadre)
@@ -320,7 +324,7 @@ func _maj_liste() -> void:
 		b.button_pressed = id == _choisi
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.custom_minimum_size = Vector2(0, 64)
-		b.icon = _vignette(j.get("image", ""))
+		b.icon = _vignette(j.get("icone", j.get("image", "")))
 		b.expand_icon = true
 		var badge: String = {"absent": "Non installé", "a_jour": "À jour", "maj": "Mise à jour !", "indisponible": "Bientôt"}[_etat_jeu(id)]
 		b.text = "  %s\n  %s" % [j["nom"], badge]

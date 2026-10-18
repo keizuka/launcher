@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://davcyoos3yk5t"
-path="res://.godot/imported/The_Storyteller_Icon.png-fe55b96ab9de75615d2615b4ae21465d.ctex"
+path="res://.godot/imported/The_Storyteller_Icon.png-5140ddf1e725dcf2b46e3c1153ae64e5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://icon&banner/th storyteller/The_Storyteller_Icon.png"
-dest_files=["res://.godot/imported/The_Storyteller_Icon.png-fe55b96ab9de75615d2615b4ae21465d.ctex"]
+source_file="res://icon&banner/the storyteller/The_Storyteller_Icon.png"
+dest_files=["res://.godot/imported/The_Storyteller_Icon.png-5140ddf1e725dcf2b46e3c1153ae64e5.ctex"]
 
 [params]
 
