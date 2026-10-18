@@ -229,7 +229,11 @@ static func lancer_paquet(paquet: String) -> String:
 	if activite == null:
 		return "Activité Android introuvable."
 	var Intent = JavaClassWrapper.wrap("android.content.Intent")
-	for classe in [paquet + ".GodotAppLauncher", paquet + ".GodotApp"]:
+	# Le template Godot nomme les activités de façon absolue et identique dans tous les jeux :
+	# com.godot.game.GodotApp (+ l'alias exporté GodotAppLauncher). Les noms relatifs au paquet
+	# restent en secours pour un jeu qui aurait renommé ses activités.
+	for classe in ["com.godot.game.GodotAppLauncher", "com.godot.game.GodotApp",
+			paquet + ".GodotAppLauncher", paquet + ".GodotApp"]:
 		var intent = Intent.Intent()
 		intent.setAction(Intent.ACTION_MAIN)
 		intent.addCategory(Intent.CATEGORY_LAUNCHER)

@@ -26,6 +26,9 @@ var _notes: RichTextLabel
 var _reglages: PanelContainer
 var _champ_catalogue: LineEdit
 var _champ_jeton: LineEdit
+var _corps: BoxContainer
+var _tete: BoxContainer
+var _defil: ScrollContainer
 var _images := {}            # url -> Texture2D (vignettes du catalogue)
 var _attente_auto := VERIFICATION_AUTO_S
 
@@ -44,6 +47,9 @@ func _ready() -> void:
 		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 	_construire()
 	get_viewport().size_changed.connect(_maj_fond)
+	if OS.get_name() == "Android" or OS.get_name() == "iOS":
+		get_window().size_changed.connect(_ajuster_orientation)
+		_ajuster_orientation.call_deferred()
 	catalogue.termine.connect(_sur_catalogue)
 	installateur.progres.connect(func(id: String, f: float, t: String):
 		if id == _choisi:
@@ -100,32 +106,38 @@ func _construire() -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 14)
 	marge.add_child(col)
-	var tete := HBoxContainer.new()
+	var tete := BoxContainer.new()
+	_tete = tete
 	col.add_child(tete)
+	var ligne_titre := HBoxContainer.new()
+	ligne_titre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ligne_titre.add_theme_constant_override("separation", 14)
+	tete.add_child(ligne_titre)
 	var logo := TextureRect.new()
 	logo.texture = load("res://assets/images/icone.png")
 	logo.custom_minimum_size = Vector2(56, 56)
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	logo.tooltip_text = "Keizuka Production"
-	tete.add_child(logo)
+	ligne_titre.add_child(logo)
 	var titre := Label.new()
 	titre.text = "Mes jeux"
 	titre.tooltip_text = "Launcher version %s" % AutoMaj.version()
 	titre.theme_type_variation = "Titre"
 	titre.add_theme_font_size_override("font_size", 40)
-	tete.add_child(titre)
-	var espace := Control.new()
-	espace.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tete.add_child(espace)
+	titre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ligne_titre.add_child(titre)
+	var boutons_tete := HBoxContainer.new()
+	boutons_tete.add_theme_constant_override("separation", 8)
+	tete.add_child(boutons_tete)
 	var verif := Button.new()
 	verif.text = "Vérifier les mises à jour"
 	verif.pressed.connect(_verifier)
-	tete.add_child(verif)
+	boutons_tete.add_child(verif)
 	var regl := Button.new()
 	regl.text = "Réglages"
 	regl.pressed.connect(func(): _reglages.visible = not _reglages.visible)
-	tete.add_child(regl)
+	boutons_tete.add_child(regl)
 
 	_etat = Label.new()
 	_etat.theme_type_variation = "Discret"
@@ -166,11 +178,13 @@ func _construire() -> void:
 		_verifier())
 	rg.add_child(enreg)
 
-	var corps := HBoxContainer.new()
+	var corps := BoxContainer.new()
+	_corps = corps
 	corps.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	corps.add_theme_constant_override("separation", 16)
 	col.add_child(corps)
 	var defil := ScrollContainer.new()
+	_defil = defil
 	defil.custom_minimum_size = Vector2(330, 0)
 	defil.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	corps.add_child(defil)
@@ -181,6 +195,7 @@ func _construire() -> void:
 
 	_cadre = PanelContainer.new()
 	_cadre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_cadre.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	corps.add_child(_cadre)
 	_fiche = VBoxContainer.new()
 	_fiche.add_theme_constant_override("separation", 10)
@@ -393,6 +408,25 @@ func _maj_fond() -> void:
 	var t := get_viewport().get_visible_rect().size
 	var chemin := "res://assets/images/fond_portrait.jpg" if t.y > t.x else "res://assets/images/fond.jpg"
 	_fond.texture = load(chemin)
+
+# Téléphone vertical : base 720×1280, la liste des jeux au-dessus de la fiche.
+# Paysage : base 1180×720, la liste à gauche et la fiche à droite.
+func _ajuster_orientation() -> void:
+	var f := get_window()
+	var portrait := f.size.y > f.size.x
+	var voulu := Vector2i(720, 1280) if portrait else Vector2i(1180, 720)
+	if f.content_scale_size != voulu:
+		f.content_scale_size = voulu
+	if _corps != null:
+		_corps.vertical = portrait
+	if _tete != null:
+		_tete.vertical = portrait
+	if _defil != null:
+		_defil.custom_minimum_size = Vector2(0, 280) if portrait else Vector2(330, 0)
+	if _image != null:
+		_image.custom_minimum_size.y = 150 if portrait else 220
+	if _champ_catalogue != null:
+		_champ_catalogue.custom_minimum_size.x = 0 if portrait else 620
 
 # Vignette du catalogue (une URL d'image) : téléchargée une fois, puis gardée en cache.
 func _vignette(url: String) -> Texture2D:

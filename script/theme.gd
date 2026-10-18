@@ -25,17 +25,21 @@ static func boite(fond: Color, bord := Color.TRANSPARENT, rayon := 6, marge := 8
 		b.set_border_width_all(1)
 	return b
 
+static func tactile() -> bool:
+	return OS.get_name() in ["Android", "iOS"] or DisplayServer.is_touchscreen_available()
+
 static func creer() -> Theme:
+	var marge := 14 if tactile() else 8
 	var t := Theme.new()
 	t.default_font = police("res://assets/polices/AlegreyaSans-Regular.ttf")
 	t.default_font_size = 18
 	for type in ["Label", "Button", "LineEdit", "CheckBox"]:
 		t.set_color("font_color", type, TEXTE)
-	t.set_stylebox("normal", "Button", boite(SURFACE_HAUTE, LIGNE))
-	t.set_stylebox("hover", "Button", boite(LIGNE, ACCENT))
-	t.set_stylebox("pressed", "Button", boite(ACCENT.darkened(0.55), ACCENT))
-	t.set_stylebox("disabled", "Button", boite(SURFACE, LIGNE))
-	t.set_stylebox("focus", "Button", boite(Color.TRANSPARENT, LAITON))
+	t.set_stylebox("normal", "Button", boite(SURFACE_HAUTE, LIGNE, 6, marge))
+	t.set_stylebox("hover", "Button", boite(LIGNE, ACCENT, 6, marge))
+	t.set_stylebox("pressed", "Button", boite(ACCENT.darkened(0.55), ACCENT, 6, marge))
+	t.set_stylebox("disabled", "Button", boite(SURFACE, LIGNE, 6, marge))
+	t.set_stylebox("focus", "Button", boite(Color.TRANSPARENT, LAITON, 6, marge))
 	t.set_color("font_disabled_color", "Button", DISCRET.darkened(0.3))
 	t.set_stylebox("normal", "LineEdit", boite(FOND, LIGNE, 6, 10))
 	t.set_stylebox("focus", "LineEdit", boite(FOND, ACCENT, 6, 10))
