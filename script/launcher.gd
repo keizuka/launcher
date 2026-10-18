@@ -12,6 +12,8 @@ var _bandeau_maj: HBoxContainer
 var _liste: VBoxContainer
 var _etat: Label
 var _choisi := ""
+var _cadre: PanelContainer
+var _fond: TextureRect
 var _fiche: VBoxContainer
 var _image: TextureRect
 var _nom: Label
@@ -41,6 +43,7 @@ func _ready() -> void:
 		get_window().content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 	_construire()
+	get_viewport().size_changed.connect(_maj_fond)
 	catalogue.termine.connect(_sur_catalogue)
 	installateur.progres.connect(func(id: String, f: float, t: String):
 		if id == _choisi:
@@ -77,13 +80,13 @@ func _process(delta: float) -> void:
 func _construire() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	# Fond Keizuka Production, assombri pour que le texte reste lisible.
-	var fond := TextureRect.new()
-	fond.texture = load("res://assets/images/fond.jpg")
-	fond.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	fond.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	fond.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	fond.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(fond)
+	_fond = TextureRect.new()
+	_fond.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_fond.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_fond.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fond.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_fond)
+	_maj_fond()
 	var voile := ColorRect.new()
 	voile.color = Color(ThemeLauncher.FOND, 0.62)
 	voile.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -176,12 +179,12 @@ func _construire() -> void:
 	_liste.add_theme_constant_override("separation", 8)
 	defil.add_child(_liste)
 
-	var cadre := PanelContainer.new()
-	cadre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	corps.add_child(cadre)
+	_cadre = PanelContainer.new()
+	_cadre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	corps.add_child(_cadre)
 	_fiche = VBoxContainer.new()
 	_fiche.add_theme_constant_override("separation", 10)
-	cadre.add_child(_fiche)
+	_cadre.add_child(_fiche)
 	_image = TextureRect.new()
 	_image.custom_minimum_size = Vector2(0, 220)
 	_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -229,8 +232,7 @@ func _sur_catalogue(ok: bool, message: String) -> void:
 		_etat.text = "Mise à jour disponible : " + ", ".join(a_maj.map(func(j): return j["nom"]))
 		_etat.add_theme_color_override("font_color", ThemeLauncher.LAITON)
 	_maj_bandeau_launcher()
-	if _choisi == "" and not catalogue.jeux.is_empty():
-		_choisi = catalogue.jeux[0]["id"]
+	# Aucun jeu n'est présélectionné : le fond du launcher se voit, la fiche s'ouvre au premier clic.
 	_maj_liste()
 	_maj_fiche()
 	if _auto_suivant.is_valid() and not _auto_lance:
@@ -326,12 +328,17 @@ func _maj_fiche() -> void:
 		c.queue_free()
 	var j := _jeu(_choisi)
 	if j.is_empty():
-		_nom.text = "Aucun jeu"
-		_description.text = "Le catalogue est vide ou injoignable. Vérifiez votre connexion, ou l'adresse du catalogue dans les réglages."
-		_versions.text = ""
-		_notes.text = ""
-		_image.texture = null
+		# Rien de choisi : la fiche se cache et le fond du launcher occupe l'écran. Le message
+		# « Aucun jeu » n'apparaît que si le catalogue est réellement vide ou injoignable.
+		_cadre.visible = catalogue.jeux.is_empty()
+		if _cadre.visible:
+			_nom.text = "Aucun jeu"
+			_description.text = "Le catalogue est vide ou injoignable. Vérifiez votre connexion, ou l'adresse du catalogue dans les réglages."
+			_versions.text = ""
+			_notes.text = ""
+			_image.texture = null
 		return
+	_cadre.visible = true
 	_nom.text = j["nom"]
 	_description.text = j.get("description", "")
 	_image.texture = _vignette(j.get("image", ""))
@@ -379,6 +386,13 @@ func _jouer() -> void:
 	var err := installateur.lancer(_choisi)
 	_dernier_pid = installateur.dernier_pid
 	_etat.text = err if err != "" else "%s est lancé. Bon jeu !" % _jeu(_choisi)["nom"]
+
+# Fond Keizuka Production : image paysage par défaut, version portrait quand la fenêtre est plus
+# haute que large (téléphone tenu à la verticale).
+func _maj_fond() -> void:
+	var t := get_viewport().get_visible_rect().size
+	var chemin := "res://assets/images/fond_portrait.jpg" if t.y > t.x else "res://assets/images/fond.jpg"
+	_fond.texture = load(chemin)
 
 # Vignette du catalogue (une URL d'image) : téléchargée une fois, puis gardée en cache.
 func _vignette(url: String) -> Texture2D:

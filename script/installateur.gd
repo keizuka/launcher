@@ -216,6 +216,9 @@ func lancer(id: String) -> String:
 	return "" if pid > 0 else "Le jeu n'a pas pu démarrer."
 
 # Android : ouvre l'application correspondant au paquet (déjà installée par le système).
+# Android 11+ filtre les paquets étrangers au launcher (le manifeste Godot n'a pas de <queries>) :
+# un intent implicite ne résout plus rien. On vise donc l'activité launcher du jeu par un
+# composant explicite, que le filtrage ne touche pas ; l'implicite reste en dernier recours.
 static func lancer_paquet(paquet: String) -> String:
 	if OS.get_name() != "Android":
 		return "Le lancement par paquet est réservé à Android."
@@ -226,6 +229,15 @@ static func lancer_paquet(paquet: String) -> String:
 	if activite == null:
 		return "Activité Android introuvable."
 	var Intent = JavaClassWrapper.wrap("android.content.Intent")
+	for classe in [paquet + ".GodotAppLauncher", paquet + ".GodotApp"]:
+		var intent = Intent.Intent()
+		intent.setAction(Intent.ACTION_MAIN)
+		intent.addCategory(Intent.CATEGORY_LAUNCHER)
+		intent.setClassName(paquet, classe)
+		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+		activite.startActivity(intent)
+		if JavaClassWrapper.get_exception() == null:
+			return ""
 	var intent = Intent.Intent()
 	intent.setAction(Intent.ACTION_MAIN)
 	intent.addCategory(Intent.CATEGORY_LAUNCHER)
@@ -236,19 +248,16 @@ static func lancer_paquet(paquet: String) -> String:
 		return "Le jeu n'est pas installé (désinstallé depuis le téléphone ?) : réinstallez-le."
 	return ""
 
-# Android : le paquet est-il encore installé ? (l'utilisateur peut désinstaller hors du launcher,
-# il ne faut donc pas se fier au seul registre installes.json)
+# Android : le paquet est-il encore installé ? L'utilisateur peut désinstaller hors du launcher,
+# mais Android 11+ masque les paquets étrangers au launcher (pas de <queries> dans le manifeste
+# Godot) : sans preuve possible du système, on fait confiance au registre — un lancement raté le
+# signalera au joueur.
 static func paquet_installe(paquet: String) -> bool:
 	if OS.get_name() != "Android":
 		return false
-	if paquet.strip_edges() == "":
-		return true  # paquet inconnu : on fait confiance au registre
-	var runtime = Engine.get_singleton("AndroidRuntime")
-	var activite = runtime.getActivity() if runtime != null else null
-	if activite == null:
-		return true
-	activite.getPackageManager().getPackageInfo(paquet, 0)
-	return JavaClassWrapper.get_exception() == null
+	# Android : confiance au registre installes.json. Sans <queries> dans le manifeste, le
+	# paramètre (le paquet à vérifier) est justement ce que le système nous cache.
+	return paquet != null
 
 var dernier_pid := 0
 
