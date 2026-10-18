@@ -213,6 +213,10 @@ func _construire() -> void:
 	_maj_fiche()
 
 func _verifier() -> void:
+	# Le launcher reste desktop : seul le jeu (rpg-ia) sort sur Android/iOS.
+	if OS.get_name() == "Android" or OS.get_name() == "iOS":
+		_etat.text = "Le launcher n'est pas disponible sur mobile."
+		return
 	_etat.text = "Recherche des nouveautés…"
 	_etat.add_theme_color_override("font_color", ThemeLauncher.DISCRET)
 	catalogue.actualiser()
