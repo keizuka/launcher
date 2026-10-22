@@ -22,7 +22,7 @@ par APK, comme les jeux.
 ## Fonctionnement
 
 - `catalogue.json` (dans ce dépôt public) : la liste des jeux (id, nom, description, image, dépôt,
-  préfixe de tag, exécutable par système, paquet Android).
+  préfixe de tag, exécutable par système, paquet Android, statut).
 - Une version d'un jeu = une release GitHub de ce dépôt, tag `<id>-v<version>`, avec `<id>-<version>-linux.zip` et
   `<id>-<version>-windows.zip` (et `…-macos.zip`), ou `<id>-<version>-android.apk` sur Android. Sur téléphone,
   seuls les jeux ayant un APK sont listés. Le texte de la release est affiché comme « Nouveautés ».
@@ -31,6 +31,40 @@ par APK, comme les jeux.
   `launcher-v*`, se renomme en `.old`, met la nouvelle version à sa place et la relance. Il doit donc être
   installé dans un dossier modifiable (pas dans Program Files). Sur Android, la mise à jour est l'APK
   de la dernière release, installé par le système.
+
+## Statuts des jeux
+
+Chaque entrée du catalogue peut avoir un `statut` (facultatif, `online` par défaut) :
+
+| Statut | Ce que voient les joueurs |
+| --- | --- |
+| `online` | le jeu apparaît et s'installe normalement |
+| `bientot` | le jeu apparaît avec « Bientôt », sans bouton d'installation |
+| `hors-ligne` | le jeu apparaît avec « Hors ligne », téléchargement suspendu (il reste jouable s'il est déjà installé) |
+| `dev` | le jeu est **invisible** ; seul le launcher de développement le montre |
+
+## Launcher de développement
+
+Version privée du launcher (`keizuka/launcher-dev`) pour lancer les jeux en cours sans les publier.
+Elle lit le catalogue public puis un catalogue privé `catalogue.dev.json`, qui peut :
+
+- donner un statut à un jeu (`online`, `bientot`, `hors-ligne`, `dev`) ;
+- ajouter un jeu qui n'est pas encore dans le catalogue public ;
+- pointer vers un **build local** (`"local": "/chemin/vers/build"`) : la fiche propose
+  « Lancer (build local) », sans release ni téléchargement.
+
+Un jeton GitHub (`repo`) est nécessaire pour lire ce dépôt privé et pour publier un changement de statut
+(la fiche a une liste « Statut public » qui commite `catalogue.dev.json`). Sans jeton, le launcher
+utilise sa copie locale et les changements restent sur la machine.
+
+```sh
+./tools/publier_launcher.sh 0.6.0 --dev          # build dev → release launcher-dev-v0.6.0 (privé)
+./tools/publier_launcher.sh 0.6.0                # build public → release launcher-v0.6.0
+./tools/publier_launcher.sh 0.6.0 --local /tmp   # zip seulement
+```
+
+Le build dev est reconnu par la fonctionnalité d'export « dev » (préréglage « Linux (dev) »),
+ou par `--mode-dev` en lancant le launcher.
 
 ## Publier une version (développeur)
 

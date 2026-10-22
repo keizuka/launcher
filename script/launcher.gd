@@ -26,6 +26,10 @@ var _notes: RichTextLabel
 var _reglages: PanelContainer
 var _champ_catalogue: LineEdit
 var _champ_jeton: LineEdit
+var _champ_catalogue_dev: LineEdit
+var _statut_ligne: HBoxContainer
+var _statut_choix: OptionButton
+var _statut_aide: Label
 var _corps: BoxContainer
 var _tete: BoxContainer
 var _defil: ScrollContainer
@@ -35,6 +39,11 @@ var _attente_auto := VERIFICATION_AUTO_S
 func _ready() -> void:
 	get_tree().root.theme = ThemeLauncher.creer()
 	RenderingServer.set_default_clear_color(ThemeLauncher.FOND)
+	# Build « dev » (préréglage d'export avec la fonctionnalité « dev ») ou option --mode-dev :
+	# les jeux cachés aux joueurs apparaissent, les statuts se modifient, les builds locales se lancent.
+	catalogue.mode_dev = OS.has_feature("dev") or "--mode-dev" in OS.get_cmdline_user_args()
+	if catalogue.mode_dev:
+		catalogue.url_catalogue_dev = "https://api.github.com/repos/keizuka/launcher-dev/contents/catalogue.dev.json"
 	add_child(catalogue)
 	add_child(installateur)
 	add_child(auto_maj)
@@ -123,9 +132,11 @@ func _construire() -> void:
 	logo.tooltip_text = "Keizuka Production"
 	ligne_titre.add_child(logo)
 	var titre := Label.new()
-	titre.text = "Mes jeux"
-	titre.tooltip_text = "Launcher version %s" % AutoMaj.version()
+	titre.text = "Mes jeux — mode dev" if catalogue.mode_dev else "Mes jeux"
+	titre.tooltip_text = "Launcher version %s%s" % [AutoMaj.version(), " (dev)" if catalogue.mode_dev else ""]
 	titre.theme_type_variation = "Titre"
+	if catalogue.mode_dev:
+		titre.add_theme_color_override("font_color", ThemeLauncher.LAITON)
 	titre.add_theme_font_size_override("font_size", 40)
 	titre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ligne_titre.add_child(titre)
@@ -163,10 +174,19 @@ func _construire() -> void:
 	rg.add_child(_champ_catalogue)
 	var l2 := Label.new()
 	l2.text = "Jeton GitHub (facultatif)"
+	if catalogue.mode_dev:
+		var ld := Label.new()
+		ld.text = "Catalogue dev (privé)"
+		rg.add_child(ld)
+		_champ_catalogue_dev = LineEdit.new()
+		_champ_catalogue_dev.text = catalogue.url_catalogue_dev
+		_champ_catalogue_dev.placeholder_text = "Fichier catalogue.dev.json du dépôt privé (API GitHub)"
+		_champ_catalogue_dev.custom_minimum_size = Vector2(620, 0)
+		rg.add_child(_champ_catalogue_dev)
 	rg.add_child(l2)
 	_champ_jeton = LineEdit.new()
 	_champ_jeton.secret = true
-	_champ_jeton.placeholder_text = "Seulement pour un jeu dans un dépôt privé où vous êtes invité"
+	_champ_jeton.placeholder_text = "Requis pour le catalogue dev et les dépôts privés" if catalogue.mode_dev else "Seulement pour un jeu dans un dépôt privé où vous êtes invité"
 	_champ_jeton.text = catalogue.jeton
 	rg.add_child(_champ_jeton)
 	rg.add_child(Control.new())
@@ -174,6 +194,8 @@ func _construire() -> void:
 	enreg.text = "Enregistrer"
 	enreg.pressed.connect(func():
 		catalogue.url_catalogue = _champ_catalogue.text.strip_edges()
+		if _champ_catalogue_dev != null:
+			catalogue.url_catalogue_dev = _champ_catalogue_dev.text.strip_edges()
 		catalogue.jeton = _champ_jeton.text.strip_edges()
 		_sauver_reglages()
 		_reglages.visible = false
@@ -220,6 +242,24 @@ func _construire() -> void:
 	_versions = Label.new()
 	_versions.theme_type_variation = "Discret"
 	_fiche.add_child(_versions)
+	# Mode dev : le statut public du jeu se choisit ici (et se publie dans le catalogue dev).
+	_statut_ligne = HBoxContainer.new()
+	_statut_ligne.add_theme_constant_override("separation", 10)
+	_statut_ligne.visible = false
+	_fiche.add_child(_statut_ligne)
+	var etiquette := Label.new()
+	etiquette.text = "Statut public :"
+	_statut_ligne.add_child(etiquette)
+	_statut_choix = OptionButton.new()
+	for s in Catalogue.STATUTS:
+		_statut_choix.add_item(Catalogue.libelle_statut(s))
+	_statut_choix.item_selected.connect(func(i: int): _changer_statut(Catalogue.STATUTS[i]))
+	_statut_ligne.add_child(_statut_choix)
+	_statut_aide = Label.new()
+	_statut_aide.theme_type_variation = "Discret"
+	_statut_aide.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_statut_aide.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_statut_ligne.add_child(_statut_aide)
 	_boutons = HBoxContainer.new()
 	_fiche.add_child(_boutons)
 	_barre = ProgressBar.new()
@@ -326,15 +366,28 @@ func _maj_liste() -> void:
 		b.custom_minimum_size = Vector2(0, 64)
 		b.icon = _vignette(j.get("icone", j.get("image", "")))
 		b.expand_icon = true
-		var badge: String = {"absent": "Non installé", "a_jour": "À jour", "maj": "Mise à jour !", "indisponible": "Bientôt"}[_etat_jeu(id)]
-		b.text = "  %s\n  %s" % [j["nom"], badge]
-		if _etat_jeu(id) == "maj":
-			b.add_theme_color_override("font_color", ThemeLauncher.LAITON)
+		var badge := _badge_jeu(j)
+		b.text = "  %s\n  %s" % [j["nom"], badge[0]]
+		if badge[1].a > 0.0:
+			b.add_theme_color_override("font_color", badge[1])
 		b.pressed.connect(func():
 			_choisi = id
 			_maj_liste()
 			_maj_fiche())
 		_liste.add_child(b)
+
+# [texte, couleur] du sous-titre d'un jeu : le statut public d'abord, l'état d'installation ensuite.
+func _badge_jeu(j: Dictionary) -> Array:
+	match Catalogue.statut(j):
+		"bientot":
+			return ["Bientôt", ThemeLauncher.LAITON]
+		"hors-ligne":
+			return ["Hors ligne", ThemeLauncher.DANGER]
+		"dev":
+			return ["DEV — caché aux joueurs", ThemeLauncher.LAITON]
+	var etat := _etat_jeu(j["id"])
+	return [{"absent": "Non installé", "a_jour": "À jour", "maj": "Mise à jour !", "indisponible": "Bientôt"}[etat],
+		ThemeLauncher.LAITON if etat == "maj" else Color.TRANSPARENT]
 
 func _jeu(id: String) -> Dictionary:
 	for j in catalogue.jeux:
@@ -350,6 +403,7 @@ func _maj_fiche() -> void:
 		# Rien de choisi : la fiche se cache et le fond du launcher occupe l'écran. Le message
 		# « Aucun jeu » n'apparaît que si le catalogue est réellement vide ou injoignable.
 		_cadre.visible = catalogue.jeux.is_empty()
+		_statut_ligne.visible = false
 		if _cadre.visible:
 			_nom.text = "Aucun jeu"
 			_description.text = "Le catalogue est vide ou injoignable. Vérifiez votre connexion, ou l'adresse du catalogue dans les réglages."
@@ -364,18 +418,44 @@ func _maj_fiche() -> void:
 	_image.visible = _image.texture != null
 	var v: Dictionary = catalogue.versions.get(_choisi, {})
 	var i: Dictionary = installateur.installes.get(_choisi, {})
-	_versions.text = "Installée : %s   ·   Dernière version : %s%s" % [i.get("version", "aucune"),
-		v.get("version", "—"), ("  (%s, %.0f Mo)" % [v["date"], v["fichier"]["taille"] / 1e6]) if not v.is_empty() else ""]
+	var statut := Catalogue.statut(j)
+	var local := str(j.get("local", ""))
+	var lignes := []
+	if catalogue.mode_dev or statut != "online":
+		lignes.append("Statut : %s" % Catalogue.libelle_statut(statut))
+	lignes.append("Installée : %s   ·   Dernière version : %s%s" % [i.get("version", "aucune"),
+		v.get("version", "—"), ("  (%s, %.0f Mo)" % [v["date"], v["fichier"]["taille"] / 1e6]) if not v.is_empty() else ""])
+	if local != "":
+		lignes.append("Build local : %s" % local)
+	_versions.text = "\n".join(lignes)
 	_notes.text = ("[b]Nouveautés de la version %s[/b]\n%s" % [v["version"], v.get("notes", "")]) if not v.is_empty() else ""
+	_statut_ligne.visible = catalogue.mode_dev
+	if catalogue.mode_dev:
+		_statut_choix.selected = maxi(0, Catalogue.STATUTS.find(statut))
+		_statut_aide.text = {"online": "visible et installable par les joueurs",
+			"bientot": "visible, installation fermée",
+			"hors-ligne": "visible, téléchargement suspendu",
+			"dev": "invisible pour les joueurs, vous seuls le voyez"}.get(statut, "")
 	var occupe := installateur.occupe()
-	match _etat_jeu(_choisi):
-		"absent":
-			_bouton("Installer", _installer, occupe)
-		"maj":
-			_bouton("Mettre à jour", _installer, occupe)
-			_bouton("Jouer (version actuelle)", _jouer, occupe)
-		"a_jour":
-			_bouton("Jouer", _jouer, occupe)
+	if catalogue.mode_dev and local != "":
+		_bouton("Lancer (build local)", _jouer_local, false)
+	match statut:
+		"bientot":
+			_bouton("Bientôt disponible", func(): pass, true)
+		"hors-ligne":
+			if i.is_empty():
+				_bouton("Hors ligne", func(): pass, true)
+			else:
+				_bouton("Jouer", _jouer, occupe)
+		_:
+			match _etat_jeu(_choisi):
+				"absent":
+					_bouton("Installer", _installer, occupe)
+				"maj":
+					_bouton("Mettre à jour", _installer, occupe)
+					_bouton("Jouer (version actuelle)", _jouer, occupe)
+				"a_jour":
+					_bouton("Jouer", _jouer, occupe)
 	if not i.is_empty():
 		_bouton("Désinstaller", func():
 			installateur.desinstaller(_choisi)
@@ -383,6 +463,44 @@ func _maj_fiche() -> void:
 				) if OS.get_name() == "Android" else "%s désinstallé." % j["nom"]
 			_maj_liste()
 			_maj_fiche(), occupe)
+
+# Mode dev : lance le build présent dans le dossier « local » du catalogue dev, sans rien publier.
+func _jouer_local() -> void:
+	var j := _jeu(_choisi)
+	var dossier := str(j.get("local", ""))
+	var exe: String = str(j.get("executable", {}).get(catalogue.systeme(), ""))
+	if dossier == "" or exe == "":
+		_etat.text = "%s : aucun build local indiqué dans le catalogue dev." % j.get("nom", _choisi)
+		_etat.add_theme_color_override("font_color", ThemeLauncher.DANGER)
+		return
+	var chemin := dossier if dossier.ends_with(exe) else dossier.path_join(exe)
+	if not chemin.begins_with("/"):
+		chemin = ProjectSettings.globalize_path(chemin)
+	if not FileAccess.file_exists(chemin):
+		_etat.text = "%s : build local introuvable (%s)." % [j["nom"], chemin]
+		_etat.add_theme_color_override("font_color", ThemeLauncher.DANGER)
+		return
+	var pid := OS.create_process(chemin, [])
+	if pid <= 0:
+		# Publication .NET ou export fraîchement décompressé : le bit « exécutable » peut manquer.
+		OS.execute("chmod", ["+x", chemin])
+		pid = OS.create_process(chemin, [])
+	_dernier_pid = pid
+	_etat.text = "%s (build local) est lancé." % j["nom"] if pid > 0 else "Le build local n'a pas pu démarrer."
+	_etat.add_theme_color_override("font_color", ThemeLauncher.TEXTE if pid > 0 else ThemeLauncher.DANGER)
+
+# Mode dev : change le statut public du jeu et publie le catalogue dev (commit GitHub).
+func _changer_statut(statut: String) -> void:
+	if _choisi == "" or not catalogue.mode_dev:
+		return
+	_etat.text = "Enregistrement du statut…"
+	_etat.add_theme_color_override("font_color", ThemeLauncher.DISCRET)
+	var err: String = await catalogue.changer_statut(_choisi, statut)
+	var nom: String = _jeu(_choisi).get("nom", _choisi)
+	_etat.text = "%s : %s." % [nom, Catalogue.libelle_statut(statut)] + ("" if err == "" else " — " + err)
+	_etat.add_theme_color_override("font_color", ThemeLauncher.DANGER if err != "" else ThemeLauncher.ACCENT)
+	_maj_liste()
+	_maj_fiche()
 
 func _bouton(texte: String, action: Callable, desactive: bool) -> void:
 	var b := Button.new()
@@ -395,6 +513,12 @@ func _bouton(texte: String, action: Callable, desactive: bool) -> void:
 func _installer() -> void:
 	var v: Dictionary = catalogue.versions.get(_choisi, {})
 	if v.is_empty():
+		return
+	# Un jeu « bientôt » ou « hors ligne » ne doit pas s'installer, même depuis un raccourci.
+	if Catalogue.statut(_jeu(_choisi)) in ["bientot", "hors-ligne"]:
+		_etat.text = "%s n'est pas encore installable (%s)." % [_jeu(_choisi).get("nom", _choisi),
+			Catalogue.libelle_statut(Catalogue.statut(_jeu(_choisi)))]
+		_etat.add_theme_color_override("font_color", ThemeLauncher.LAITON)
 		return
 	installateur.installer(_jeu(_choisi), v, catalogue.entetes(), catalogue.systeme())
 	_maj_fiche()
@@ -431,6 +555,8 @@ func _ajuster_orientation() -> void:
 		_image.custom_minimum_size.y = 150 if portrait else 220
 	if _champ_catalogue != null:
 		_champ_catalogue.custom_minimum_size.x = 0 if portrait else 620
+	if _champ_catalogue_dev != null:
+		_champ_catalogue_dev.custom_minimum_size.x = 0 if portrait else 620
 
 # Vignette du catalogue (une URL d'image) : téléchargée une fois, puis gardée en cache.
 func _vignette(url: String) -> Texture2D:
@@ -476,10 +602,15 @@ func _lire_reglages() -> void:
 	if d is Dictionary:
 		catalogue.url_catalogue = d.get("catalogue", catalogue.url_catalogue)
 		catalogue.jeton = d.get("jeton", "")
+		if catalogue.mode_dev and str(d.get("catalogue_dev", "")) != "":
+			catalogue.url_catalogue_dev = d["catalogue_dev"]
 
 func _sauver_reglages() -> void:
 	var f := FileAccess.open(REGLAGES, FileAccess.WRITE)
-	f.store_string(JSON.stringify({"catalogue": catalogue.url_catalogue, "jeton": catalogue.jeton}))
+	var d := {"catalogue": catalogue.url_catalogue, "jeton": catalogue.jeton}
+	if catalogue.mode_dev:
+		d["catalogue_dev"] = catalogue.url_catalogue_dev
+	f.store_string(JSON.stringify(d))
 
 # --- Ligne de commande (tests) ---
 #   --catalogue <url|fichier>  --api <url>  --auto "installer:id|lancer:id"  --capture <png>
@@ -494,6 +625,8 @@ func _options_ligne_de_commande() -> void:
 		return a[i + 1] if i >= 0 and i + 1 < a.size() else ""
 	if val.call("--catalogue") != "":
 		catalogue.url_catalogue = val.call("--catalogue")
+	if val.call("--catalogue-dev") != "":
+		catalogue.url_catalogue_dev = val.call("--catalogue-dev")
 	if val.call("--api") != "":
 		catalogue.url_api = val.call("--api")
 	if val.call("--auto") != "":
@@ -524,6 +657,10 @@ func _etape_auto() -> void:
 			_etape_auto()
 		"desinstaller":
 			installateur.desinstaller(_choisi)
+			_etape_auto()
+		"statut":
+			await _changer_statut(e.get_slice(":", 2))
+			print("AUTO statut ", _etat.text)
 			_etape_auto()
 		"maj_launcher":
 			print("AUTO launcher %s, publié %s" % [AutoMaj.version(), catalogue.version_lanceur.get("version", "aucun")])
