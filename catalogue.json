@@ -14,15 +14,6 @@
 			"package_android": "io.github.keizuka.storyteller"
 		},
 		{
-			"id": "apoapsis-brutal",
-			"nom": "Apoapsis (BRUTAL)",
-			"description": "Le portage d'Apoapsis en C#/.NET sur le moteur BRUTAL (Vulkan) : système solaire à l'échelle réelle avec éphémérides NASA (DE440), atelier d'assemblage et étagement, vol orbital avec HUD, relief réel de la Terre, de la Lune et de Mars, et un ordinateur de guidage Apollo (AGC/DSKY) émulé qui peut réellement piloter le vaisseau. Version Linux, en développement : pas encore de décollage depuis le sol.",
-			"image": "https://raw.githubusercontent.com/keizuka/launcher/main/vignettes/apoapsis.png",
-			"depot": "keizuka/launcher",
-			"prefixe_tag": "apoapsis-brutal-v",
-			"executable": {"linux": "apoapsis.x86_64"}
-		},
-		{
 			"id": "apoapsis",
 			"nom": "Apoapsis",
 			"description": "Un jeu spatial dans le vrai système solaire, à l'échelle réelle (éphémérides NASA/JPL) : assemblez vos fusées, décollez de Kourou, rejoignez une station en orbite, amarrez-vous, transférez vos ergols, posez-vous sur la Lune et marchez dessus. Cockpit à la première personne avec écrans tactiles, rentrée atmosphérique avec échauffement, relief réel de la Terre, de la Lune et de Mars. Version Linux.",
