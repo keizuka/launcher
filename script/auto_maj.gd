@@ -48,9 +48,8 @@ func appliquer(v: Dictionary, executable: String, entetes: PackedStringArray, ar
 		h.download_file = zip
 		h.use_threads = true
 		add_child(h)
-		var e := entetes.duplicate()
-		e.append("Accept: application/octet-stream")
-		if h.request(url, e) != OK:
+		var req := Catalogue.requete_fichier(v["fichier"], entetes)
+		if h.request(req[0], req[1]) != OK:
 			echec.emit("Téléchargement impossible.")
 			return
 		progres.emit(0.1, "Téléchargement du launcher %s…" % v["version"])

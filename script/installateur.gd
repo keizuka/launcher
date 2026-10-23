@@ -62,9 +62,8 @@ func installer(jeu: Dictionary, version: Dictionary, entetes: PackedStringArray,
 		DirAccess.copy_absolute(url.trim_prefix("file://"), ProjectSettings.globalize_path(zip))  # tests hors ligne
 		r = [HTTPRequest.RESULT_SUCCESS, 200]
 	else:
-		var h := entetes.duplicate()
-		h.append("Accept: application/octet-stream")
-		if _telechargement.request(url, h) != OK:
+		var req := Catalogue.requete_fichier(version["fichier"], entetes)
+		if _telechargement.request(req[0], req[1]) != OK:
 			_terminer(id, false, "Téléchargement impossible.")
 			return
 		r = await _telechargement.request_completed
@@ -137,10 +136,8 @@ func _apk_http(jeu: Dictionary, version: Dictionary, entetes: PackedStringArray)
 	_telechargement.download_file = apk
 	_telechargement.use_threads = true
 	add_child(_telechargement)
-	var url: String = version["fichier"]["url"]
-	var h := entetes.duplicate()
-	h.append("Accept: application/octet-stream")
-	if _telechargement.request(url, h) != OK:
+	var req := Catalogue.requete_fichier(version["fichier"], entetes)
+	if _telechargement.request(req[0], req[1]) != OK:
 		_terminer(id, false, "Téléchargement impossible.")
 		return
 	var r: Array = await _telechargement.request_completed

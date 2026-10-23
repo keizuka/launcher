@@ -45,6 +45,22 @@ func systeme() -> String:
 			return "macos"
 	return "linux"
 
+# Requête de téléchargement d'un fichier de release : [url, en-têtes].
+# Avec un jeton, l'URL d'API de l'asset : c'est la seule qui marche pour un dépôt privé
+# (browser_download_url y répond 404). Un seul « Accept » binaire, sinon GitHub renvoie le JSON.
+static func requete_fichier(fichier: Dictionary, entetes: PackedStringArray) -> Array:
+	var h := PackedStringArray()
+	var avec_jeton := false
+	for e in entetes:
+		if e.begins_with("Accept:"):
+			continue
+		if e.begins_with("Authorization:"):
+			avec_jeton = true
+		h.append(e)
+	h.append("Accept: application/octet-stream")
+	var api := str(fichier.get("api", ""))
+	return [api if avec_jeton and api != "" else str(fichier.get("url", "")), h]
+
 func entetes() -> PackedStringArray:
 	var h := PackedStringArray(["User-Agent: launcher-keizuka", "Accept: application/vnd.github+json"])
 	if jeton.strip_edges() != "":
@@ -257,7 +273,8 @@ static func derniere_version(releases: Array, prefixe: String, sys: String) -> D
 			var nom: String = str(a.get("name", "")).to_lower()
 			var conforme := nom.ends_with("-android.apk") if sys == "android" else nom.ends_with("-%s.zip" % sys)
 			if conforme:
-				fichier = {"nom": a["name"], "url": a["browser_download_url"], "taille": int(a.get("size", 0))}
+				fichier = {"nom": a["name"], "url": a["browser_download_url"], "api": str(a.get("url", "")),
+					"taille": int(a.get("size", 0))}
 		if fichier.is_empty():
 			continue
 		var version := tag.trim_prefix(prefixe)

@@ -14,7 +14,7 @@ func verifier(cond: bool, message: String) -> void:
 func _release(tag: String, fichiers: Array, draft := false) -> Dictionary:
 	var assets := []
 	for f in fichiers:
-		assets.append({"name": f, "browser_download_url": "https://x/" + f, "size": 10})
+		assets.append({"name": f, "browser_download_url": "https://x/" + f, "url": "https://api/assets/" + f, "size": 10})
 	return {"tag_name": tag, "draft": draft, "published_at": "2026-10-17", "body": "", "assets": assets}
 
 func _init():
@@ -56,5 +56,19 @@ func _init():
 	verifier(Catalogue.visibles(fusion, true).size() == 3, "mode dev : tous les jeux sont visibles")
 	verifier(Catalogue.visibles([{"id": "a", "statut": "hors-ligne"}], false).size() == 1,
 		"joueurs : un jeu hors ligne reste visible")
+	# Téléchargement : URL d'API avec un jeton (dépôt privé), URL publique sans ; un seul Accept binaire.
+	var fichier: Dictionary = linux["fichier"]
+	var sans := Catalogue.requete_fichier(fichier, PackedStringArray(["User-Agent: l", "Accept: application/vnd.github+json"]))
+	verifier(sans[0] == "https://x/rpg-ia-0.6.1-linux.zip", "sans jeton : URL publique, obtenu « %s »" % sans[0])
+	var avec := Catalogue.requete_fichier(fichier,
+		PackedStringArray(["User-Agent: l", "Accept: application/vnd.github+json", "Authorization: Bearer t"]))
+	verifier(avec[0] == "https://api/assets/rpg-ia-0.6.1-linux.zip", "avec jeton : URL d'API, obtenu « %s »" % avec[0])
+	var accepts := 0
+	for e in avec[1]:
+		if e.begins_with("Accept:"):
+			accepts += 1
+			verifier(e == "Accept: application/octet-stream", "en-tête Accept binaire attendu, obtenu « %s »" % e)
+	verifier(accepts == 1, "un seul en-tête Accept, obtenu %d" % accepts)
+	verifier("Authorization: Bearer t" in avec[1], "le jeton est transmis")
 	print("%d/%d vérifications réussies" % [_total - _echecs, _total])
 	quit()
