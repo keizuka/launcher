@@ -24,6 +24,11 @@ done
 [[ -n "$version" ]] || version=$(grep -oP 'config/version="\K[^"]+' "$racine/project.godot")
 [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]] || { echo "Version invalide : $version (ex. 0.6.0)" >&2; exit 1; }
 
+# La version publiée est celle que le launcher annonce (auto-mise à jour) : on l'écrit
+# dans le projet et les préréglages d'export avant d'exporter.
+sed -i "s/^config\/version=\".*\"/config\/version=\"$version\"/" "$racine/project.godot"
+sed -i "s/^version\/name=\".*\"/version\/name=\"$version\"/" "$racine/export_presets.cfg"
+
 id="launcher"; depot="keizuka/launcher"; prefixe="launcher-v"
 systemes="linux windows macos android"
 if [[ $dev == 1 ]]; then
