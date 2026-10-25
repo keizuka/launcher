@@ -439,7 +439,8 @@ func _maj_fiche() -> void:
 	var occupe := installateur.occupe()
 	if catalogue.mode_dev and local != "":
 		_bouton("Lancer (build local)", _jouer_local, false)
-	match statut:
+	# Mode dev : les développeurs installent et lancent le jeu quel que soit son statut public.
+	match "online" if catalogue.mode_dev else statut:
 		"bientot":
 			_bouton("Bientôt disponible", func(): pass, true)
 		"hors-ligne":
@@ -514,8 +515,9 @@ func _installer() -> void:
 	var v: Dictionary = catalogue.versions.get(_choisi, {})
 	if v.is_empty():
 		return
-	# Un jeu « bientôt » ou « hors ligne » ne doit pas s'installer, même depuis un raccourci.
-	if Catalogue.statut(_jeu(_choisi)) in ["bientot", "hors-ligne"]:
+	# Un jeu « bientôt » ou « hors ligne » ne doit pas s'installer, même depuis un raccourci
+	# (sauf pour les développeurs, en mode dev).
+	if not catalogue.mode_dev and Catalogue.statut(_jeu(_choisi)) in ["bientot", "hors-ligne"]:
 		_etat.text = "%s n'est pas encore installable (%s)." % [_jeu(_choisi).get("nom", _choisi),
 			Catalogue.libelle_statut(Catalogue.statut(_jeu(_choisi)))]
 		_etat.add_theme_color_override("font_color", ThemeLauncher.LAITON)
