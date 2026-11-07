@@ -16,7 +16,7 @@
 		{
 			"id": "apoapsis-brutal",
 			"nom": "Apoapsis (BRUTAL)",
-			"description": "Apoapsis porté en C#/.NET sur le moteur BRUTAL (Vulkan) : système solaire à l'échelle réelle (éphémérides NASA DE440), atelier d'assemblage et étagement, décollage et vol orbital, relief réel de la Terre, de la Lune et de Mars, atmosphère (traînée, rentrée, ciel), amarrage à la station Héliade, cockpit 3D à la première personne avec écrans MFD et ordinateur de guidage Apollo (AGC/DSKY) émulé. 148 pièces historiques du mod FASA (Mercury, Gemini, Apollo, Saturn V) s'ajoutent aux pièces du jeu. Linux et Windows (Windows en essai).",
+			"description": "Apoapsis porté en C#/.NET sur le moteur BRUTAL (Vulkan) : système solaire à l'échelle réelle (éphémérides NASA DE440), atelier d'assemblage et étagement, décollage et vol orbital, relief réel de la Terre, de la Lune et de Mars, atmosphère (traînée, rentrée, ciel), amarrage à la station Héliade, cockpit 3D à la première personne avec écrans MFD et ordinateur de guidage Apollo (AGC/DSKY) émulé. Les pièces Mercury, Gemini, Apollo et Saturn V sont modélisées par le projet (GPL v3), avec un poste de pilotage Apollo à planche de bord éditable. Linux et Windows (Windows en essai).",
 			"image": "https://raw.githubusercontent.com/keizuka/launcher/main/vignettes/apoapsis.png",
 			"icone": "https://raw.githubusercontent.com/keizuka/launcher/main/icon%26banner/apoapsis/Apoapsis_Icon.png",
 			"depot": "keizuka/launcher",
